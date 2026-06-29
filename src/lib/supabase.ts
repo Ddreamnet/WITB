@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import type { Database } from '../db/database.types'
 
 // Bağlantı bilgileri .env.local'dan gelir (Vite, VITE_ önekli değişkenleri pakete gömer).
 // publishable/anon anahtarı herkese açık olacak şekilde tasarlıdır; gizli DEĞİLDİR.
@@ -17,7 +18,7 @@ if (!url || !key) {
 /** Bağlantı bilgileri varsa Supabase istemcisi, yoksa null. */
 export const supabase =
   url && key
-    ? createClient(url, key, {
+    ? createClient<Database>(url, key, {
         auth: {
           persistSession: true,
           autoRefreshToken: true,

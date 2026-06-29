@@ -5,6 +5,7 @@ import * as nodesRepo from '../db/nodesRepo'
 import { deletePhotos } from '../db/photosRepo'
 import { invalidateThumb } from '../lib/photoUrl'
 import { normalizeText } from '../lib/text'
+import { markDirty, markDeleted } from '../lib/sync'
 
 interface NodesState {
   nodes: NodeRow[]
@@ -44,6 +45,7 @@ export const useNodesStore = create<NodesState>((set, get) => ({
     const siblings = get().nodes.filter((n) => n.parentId === null)
     const node = await nodesRepo.createNode({ name, parentId: null, order: topOrder(siblings) })
     set((s) => ({ nodes: [...s.nodes, node] }))
+    void markDirty(node.id)
     return node
   },
 
@@ -51,6 +53,7 @@ export const useNodesStore = create<NodesState>((set, get) => ({
     const siblings = get().nodes.filter((n) => n.parentId === parentId)
     const node = await nodesRepo.createNode({ name, parentId, order: topOrder(siblings) })
     set((s) => ({ nodes: [...s.nodes, node] }))
+    void markDirty(node.id)
     return node
   },
 
@@ -61,6 +64,7 @@ export const useNodesStore = create<NodesState>((set, get) => ({
       const q = existing.quantity + 1
       set((s) => ({ nodes: s.nodes.map((n) => (n.id === existing.id ? { ...n, quantity: q } : n)) }))
       await nodesRepo.setQuantity(existing.id, q)
+      void markDirty(existing.id)
       return { ...existing, quantity: q }
     }
     return get().addItem(parentId, name)
@@ -73,6 +77,7 @@ export const useNodesStore = create<NodesState>((set, get) => ({
       ),
     }))
     await nodesRepo.renameNode(id, name)
+    void markDirty(id)
   },
 
   async increment(id) {
@@ -81,6 +86,7 @@ export const useNodesStore = create<NodesState>((set, get) => ({
     const q = node.quantity + 1
     set((s) => ({ nodes: s.nodes.map((n) => (n.id === id ? { ...n, quantity: q } : n)) }))
     await nodesRepo.setQuantity(id, q)
+    void markDirty(id)
   },
 
   async decrement(id) {
@@ -89,6 +95,7 @@ export const useNodesStore = create<NodesState>((set, get) => ({
     const q = node.quantity - 1
     set((s) => ({ nodes: s.nodes.map((n) => (n.id === id ? { ...n, quantity: q } : n)) }))
     await nodesRepo.setQuantity(id, q)
+    void markDirty(id)
   },
 
   async addPhotos(id, photoIds) {
@@ -97,6 +104,7 @@ export const useNodesStore = create<NodesState>((set, get) => ({
     const ids = [...(node?.photoIds ?? []), ...photoIds]
     set((s) => ({ nodes: s.nodes.map((n) => (n.id === id ? { ...n, photoIds: ids } : n)) }))
     await nodesRepo.setPhotos(id, ids)
+    void markDirty(id)
   },
 
   async removePhoto(id, photoId) {
@@ -104,6 +112,7 @@ export const useNodesStore = create<NodesState>((set, get) => ({
     const ids = (node?.photoIds ?? []).filter((p) => p !== photoId)
     set((s) => ({ nodes: s.nodes.map((n) => (n.id === id ? { ...n, photoIds: ids } : n)) }))
     await nodesRepo.setPhotos(id, ids)
+    void markDirty(id)
     invalidateThumb(photoId)
     await deletePhotos([photoId])
   },
@@ -113,6 +122,7 @@ export const useNodesStore = create<NodesState>((set, get) => ({
       nodes: s.nodes.map((n) => (n.id === boxId ? { ...n, skipDeleteConfirm: value } : n)),
     }))
     await nodesRepo.setSkipDeleteConfirm(boxId, value)
+    void markDirty(boxId)
   },
 
   async moveTo(id, newParentId) {
@@ -122,6 +132,7 @@ export const useNodesStore = create<NodesState>((set, get) => ({
       nodes: s.nodes.map((n) => (n.id === id ? { ...n, parentId: newParentId, order } : n)),
     }))
     await nodesRepo.setParent(id, newParentId, order)
+    void markDirty(id)
   },
 
   async remove(id) {
@@ -142,6 +153,7 @@ export const useNodesStore = create<NodesState>((set, get) => ({
       for (const child of childrenByParent.get(cur) ?? []) stack.push(child.id)
     }
     set((s) => ({ nodes: s.nodes.filter((n) => !removed.has(n.id)) }))
+    removed.forEach((rid) => void markDeleted(rid))
     await deletePhotos(photoIds)
   },
 }))

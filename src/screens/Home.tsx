@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useChildren, useNodesStore } from '../store/useNodes'
+import { useSpaceStore } from '../store/useSpace'
 import { NodeCard } from '../components/NodeCard'
 import { SearchBar } from '../components/SearchBar'
 import { NewBoxDialog } from '../components/NewBoxDialog'
+import { ShareDialog } from '../components/ShareDialog'
 import { Icon } from '../components/Icon'
 import { searchNodes } from '../lib/search'
 import { categoryIconForName } from '../lib/suggestions'
@@ -14,8 +16,12 @@ export function Home() {
   const allNodes = useNodesStore((s) => s.nodes)
   const createBox = useNodesStore((s) => s.createBox)
 
+  const hasSpace = useSpaceStore((s) => !!s.space)
+  const cloudEnabled = useSpaceStore((s) => s.cloudEnabled)
+
   const [query, setQuery] = useState('')
   const [creating, setCreating] = useState(false)
+  const [sharing, setSharing] = useState(false)
 
   const hits = useMemo(
     () => (query.trim() ? searchNodes(allNodes, query) : []),
@@ -34,6 +40,16 @@ export function Home() {
     <div className="app">
       <header className="masthead">
         <h1 className="wordmark">WITB?</h1>
+        {cloudEnabled && (
+          <button
+            className={'iconbtn masthead__share' + (hasSpace ? ' iconbtn--accent' : '')}
+            onClick={() => setSharing(true)}
+            aria-label="Paylaş"
+            title={hasSpace ? 'Ortak ev etkin' : 'Paylaş'}
+          >
+            <Icon name="users" size={22} />
+          </button>
+        )}
       </header>
 
       <SearchBar value={query} onChange={setQuery} placeholder="Her şeyde ara…" />
@@ -105,6 +121,8 @@ export function Home() {
           }}
         />
       )}
+
+      {sharing && <ShareDialog onClose={() => setSharing(false)} />}
     </div>
   )
 }

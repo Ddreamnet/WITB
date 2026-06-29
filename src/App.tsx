@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Capacitor } from '@capacitor/core'
 import { useNodesStore } from './store/useNodes'
+import { useSpaceStore } from './store/useSpace'
 import { Home } from './screens/Home'
 import { BoxView } from './screens/BoxView'
 import { Icon } from './components/Icon'
@@ -9,10 +10,15 @@ import { Icon } from './components/Icon'
 export function App() {
   const loaded = useNodesStore((s) => s.loaded)
   const init = useNodesStore((s) => s.init)
+  const spaceInit = useSpaceStore((s) => s.init)
 
   useEffect(() => {
-    void init()
-  }, [init])
+    // Önce yerel veriyi yükle, sonra (varsa) aktif space'i bağlayıp senkronu başlat.
+    void (async () => {
+      await init()
+      await spaceInit()
+    })()
+  }, [init, spaceInit])
 
   // Android donanım geri tuşu: geçmiş varsa geri git, yoksa uygulamadan çık.
   useEffect(() => {
