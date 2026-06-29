@@ -1,0 +1,45 @@
+{
+  "name": "whats-in-the-box",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Kutu/alan içeriklerini hızlıca kaydet ve ara - offline envanter uygulaması",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "cap:sync": "npm run build && npx cap sync android",
+    "cap:assets": "npx @capacitor/assets generate --android --iconBackgroundColor \"#0C1631\" --iconBackgroundColorDark \"#0C1631\" --splashBackgroundColor \"#0C1631\" --splashBackgroundColorDark \"#0C1631\""
+  },
+  "dependencies": {
+    "@capacitor/app": "^6.0.1",
+    "@capacitor/camera": "^6.1.0",
+    "@capacitor/core": "^6.1.2",
+    "@capacitor/preferences": "^6.0.2",
+    "@fontsource-variable/fraunces": "^5.2.9",
+    "@fontsource-variable/space-grotesk": "^5.2.10",
+    "@fontsource/tulpen-one": "^5.2.7",
+    "@supabase/supabase-js": "^2.108.2",
+    "@tanstack/react-virtual": "^3.10.8",
+    "dexie": "^4.0.8",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.2",
+    "zustand": "^4.5.5"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^6.1.2",
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^6.1.2",
+    "@types/react": "^18.3.10",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "fake-indexeddb": "^6.0.0",
+    "jsdom": "^25.0.1",
+    "typescript": "^5.6.2",
+    "vite": "^5.4.8",
+    "vitest": "^2.1.1"
+  }
+}

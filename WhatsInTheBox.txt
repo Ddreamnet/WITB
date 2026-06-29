@@ -1,0 +1,66 @@
+			What's in it?
+
+Mobil app.
+Kategoriler var.
+Ekle çıkar yapılıyor.
+Stok takip ediliyor.
+Genel arama ile nerede olduğu bulunuyor.
+Key ile ortak kullanım.
+(Notepad kısmı)
+
+
+Hızlı ekleme Önerileri
+-Seçilen kategoride neler olabileceğine dair altta seçenekler verilir.
+
+
+Genel işlevi;
+App'de alan, kategori, kutu(daha isim düşünmedim) seçiliyor. Bunda da hızlı öneriler var. örneğin buzdolabı, buzluk, ilk yardım çantası, alet çantası
+Burada manuel ekleme yapılması öncelikli.
+Alan başlığını yazıyor. örn 13.koli
+13.koli alanı oluşturulduğunda direkt içeriğine yönlendiriliyor. Başlangıçta içi boş. eklemeler yapması için textbox var. her yazdığı şeyde yandaki onay butonuna basına çok hızlı bi şekilde listeye ekleyebiliyor.
+listeye eklenen item'lerin kartında solda item ismi, sağda 3 adet buton.
+o iteme alt liste oluşturmak için bir buton, itemin adetini artırmak için bir buton(artırdıktan sonra eksi butonu da görünmeye başlayacak)
+En sonda da trashcan icon ile silme işlemi.
+Eğer stok adedi 2'den 1 düşürülse eksiltme butonu kaybolur. Silmesi için trashcan'a basar. Silme uyarı diyaloğu çıkar. X'i(itemi) Y'den(kutu,alan) çıkarmak istediğinize emin misiniz?
+Altında da bu kutu için bir daha sorma checkbox'ı. Eğer o seçilirse bidaha o kutudan bir şey silinirken alert dialog açılmaz.
+
+
+Eğer seçilen alan hızlı önerilerden biriyse, içine tıklanıp item ekleneceği sırada altta hızlı öneriler de olsun. hızlıca oradan ekleyebilsin. 
+Ekleme sırasında item hızlı öneriden kaybolmasın ama onun eklendiği belli olsun. 
+Eğer tekrar tekrar eklerse, adet belli olur.
+
+ 
+Eğer manuel olarak alan girildiyse ve bu manuel girilen alan, hızlı önerilerde bulunan alanların birinin benzer ismiyse, yine o alana ait hızlı seçim item önerileri gelsin.
+
+Eğer benzer isimde bir alan değilse de,
+içine eklenen itemin ismi, bir kategoriye ait itemlerdense, içinde bulunduğu kategorideki diğer itemler öneri olarak sunulsun.
+Örn. YÇ isimli bi alan, kutu oluşturdum. İçine sargı bezi ekledim. Sargı bezi, daha önceden sisteme kaydedilmiş ilk yardım çantası eşyalarından olduğu için, öneri olarak diğer ilk yardım çantası itemleri sunulsun.
+
+
+İç içe geçme olayı;
+listeleneb bir itemin altına başka itemler gelirse, o itemde artık bir kutu rolüne sahip olur ve dışarı çıkarılıp genel kutular kısmında olabilir. o yüzden altına item eklenen bir itemin rolü değişince, kartında dışarıya çıkarma gibi bir şey olmalı. Genel  kısmında bulunan bir kutunun da başka bir kutu içine aktarılması olabilir. Bunlar için gerekli ikonlar ve tasarım ayarlanır.
+
+
+Kutu, çanta, alan, kategori olarak bahsettiklerim hepsi aynı şey. Daha genel bir isim verilmedi.
+
+
+Genel kullanım amacı;
+-Buzdolabında nelerin olduğunu bilmiyorsun,
+-Taşınma sırasında hangi kolide ne olduğunu bilmiyorsun,
+-Seyahat sırasında çantanda ne olduğunu, hangi bölmesinde ne oldığunu bilmiyorsun,
+-Bazaların altına ne koyduğunu bilmiyorsun, hangi eşya hangi bazanın altında?
+
+
+Şu an taşınma sürecindeyim ve bu yüzden bu uygulamayı yapmak istiyorum. Kolilerin içerisinde neler olduğunu kaydedebilmek için. 
+
+En önemli kriter listeye ekleme ve arama algoritmasının müthiş hızlı çalışması.
+
+
+Ürün eklerken ürünün fotoğrafı çekilebilsin. Burada da fotoğrafın yüklenmesi ve sonrasında görüntülenmesinin hızlı yüklenmesi. Kalite çok önemli değil. Kolilerin de fotoğrafları çekilebilsin. Fotoğrafı olan ürünlerin ya da kolilerin solunda görselleri ufak resim olarak görünsün ve üstüne tıklayınca büyüsün. Ama ürün kartının boyutu fotoğraflı ya da fotoğrafsız değişmesin. Kart boyutu sabit hepsi için. 
+
+
+
+Bunu capacitor ile android'e çevirip kendi android cihazımda kullanacağim. Önceliğim koli oluşturma, fotoğrad ekleyebilmek, adet girebilme, koli içinde koli oluşturabilme. Diğer istediğim özellikleri sonraki phase'lere Bırakabilirsin. Genel detaylı bir plan oluşturup temel özelliklerle başla lütfen. 
+
+App icon olarak icon.png dosyasını bu dosyaya yükleyeceğim sonra. farklı boyutlara, farklı şekillere çekebilrisin. sanırım capacitor asset oluşturma bu konuda yardımcı oluyor. 
+
