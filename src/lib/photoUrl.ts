@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getPhoto } from '../db/photosRepo'
+import { useNodesStore } from '../store/useNodes'
 
 // Thumbnail object URL'leri önbelleklenir; kaydırma sırasında tekrar yüklenmez.
 const thumbCache = new Map<string, string>()
@@ -16,6 +17,7 @@ async function loadThumbUrl(photoId: string): Promise<string | null> {
 
 /** Liste kartı için küçük thumbnail URL'i (önbellekli). */
 export function useThumbUrl(photoId: string | undefined): string | null {
+  const tick = useNodesStore((s) => s.photoTick)
   const [url, setUrl] = useState<string | null>(() =>
     photoId ? thumbCache.get(photoId) ?? null : null,
   )
@@ -31,12 +33,14 @@ export function useThumbUrl(photoId: string | undefined): string | null {
     return () => {
       alive = false
     }
-  }, [photoId])
+    // tick: uzaktan inen fotoğraf yereldeyken yeniden yüklemeyi tetikler.
+  }, [photoId, tick])
   return url
 }
 
 /** Tam görsel URL'i (görüntüleyici için); kapanınca serbest bırakılır. */
 export function useFullUrl(photoId: string | undefined): string | null {
+  const tick = useNodesStore((s) => s.photoTick)
   const [url, setUrl] = useState<string | null>(null)
   useEffect(() => {
     let alive = true
@@ -54,7 +58,7 @@ export function useFullUrl(photoId: string | undefined): string | null {
       alive = false
       if (created) URL.revokeObjectURL(created)
     }
-  }, [photoId])
+  }, [photoId, tick])
   return url
 }
 

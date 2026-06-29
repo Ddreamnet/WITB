@@ -1,6 +1,7 @@
 import { capturePhotos } from './camera'
 import { processImage } from './image'
 import { savePhoto } from '../db/photosRepo'
+import { markPhotoDirty } from './sync'
 
 /**
  * Fotoğraf(lar) yakalar, küçültüp kaydeder ve node'a EKLER (mevcutları silmez).
@@ -16,7 +17,9 @@ export async function captureAndAdd(
   const ids: string[] = []
   for (const blob of blobs) {
     const { full, thumb } = await processImage(blob)
-    ids.push(await savePhoto(full, thumb))
+    const id = await savePhoto(full, thumb)
+    ids.push(id)
+    void markPhotoDirty(id) // varsa aktif eve yükle (yoksa no-op)
   }
   await addPhotos(nodeId, ids)
   return ids.length

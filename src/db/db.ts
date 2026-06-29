@@ -9,10 +9,17 @@ export interface OutboxRow {
   deleted: boolean
 }
 
+/** Buluta (Storage) gönderilmeyi bekleyen fotoğraf değişikliği. */
+export interface PhotoOutboxRow {
+  photoId: string
+  deleted: boolean
+}
+
 export class WitbDB extends Dexie {
   nodes!: Table<NodeRow, string>
   photos!: Table<PhotoRow, string>
   outbox!: Table<OutboxRow, string>
+  photoOutbox!: Table<PhotoOutboxRow, string>
 
   constructor() {
     super('whats-in-the-box')
@@ -42,6 +49,13 @@ export class WitbDB extends Dexie {
       nodes: 'id, parentId, nameLower, order, createdAt',
       photos: 'id',
       outbox: 'nodeId',
+    })
+    // v4: fotoğraf (Storage) senkronu için bekleyen-değişiklik kutusu.
+    this.version(4).stores({
+      nodes: 'id, parentId, nameLower, order, createdAt',
+      photos: 'id',
+      outbox: 'nodeId',
+      photoOutbox: 'photoId',
     })
   }
 }

@@ -9,13 +9,23 @@ import { invalidateThumb } from './photoUrl'
 
 type Row = Database['public']['Tables']['nodes']['Row']
 type Insert = Database['public']['Tables']['nodes']['Insert']
+type PhotoMetaRow = Database['public']['Tables']['photos']['Row']
+type PhotoMetaInsert = Database['public']['Tables']['photos']['Insert']
+
+const PHOTO_BUCKET = 'photos'
+const fullPath = (sid: string, id: string) => `${sid}/${id}`
+const thumbPath = (sid: string, id: string) => `${sid}/${id}_thumb`
 
 // ---- Modül durumu ----
 let activeSpaceId: string | null = null
 let channel: RealtimeChannel | null = null
+let photoChannel: RealtimeChannel | null = null
 let flushTimer: ReturnType<typeof setTimeout> | null = null
 let flushing = false
 let flushQueued = false
+let photoFlushTimer: ReturnType<typeof setTimeout> | null = null
+let photoFlushing = false
+let photoFlushQueued = false
 
 export function setActiveSpaceId(id: string | null) {
   activeSpaceId = id
@@ -151,6 +161,7 @@ export async function pushAllLocal(): Promise<void> {
     await db.outbox.bulkPut(ids.map((nodeId) => ({ nodeId: nodeId as string, deleted: false })))
   }
   await flushOutbox()
+  await pushAllLocalPhotos()
 }
 
 // ---- Pull (Supabase -> yerel, son-yazan-kazanır) ----
@@ -229,6 +240,193 @@ export function applyRemoteRows(rows: Row[]) {
   useNodesStore.setState({ nodes: Array.from(byId.values()) })
 }
 
+// ---- Fotoğraf senkronu (Storage) ----
+
+export async function markPhotoDirty(id: string) {
+  if (!activeSpaceId || !supabase) return
+  await db.photoOutbox.put({ photoId: id, deleted: false })
+  schedulePhotoFlush()
+}
+
+export async function markPhotoDeleted(id: string) {
+  if (!activeSpaceId || !supabase) return
+  await db.photoOutbox.put({ photoId: id, deleted: true })
+  schedulePhotoFlush()
+}
+
+function schedulePhotoFlush(delay = 600) {
+  if (photoFlushTimer) clearTimeout(photoFlushTimer)
+  photoFlushTimer = setTimeout(() => {
+    photoFlushTimer = null
+    void flushPhotoOutbox()
+  }, delay)
+}
+
+export async function flushPhotoOutbox(): Promise<void> {
+  if (!supabase || !activeSpaceId) return
+  if (photoFlushing) {
+    photoFlushQueued = true
+    return
+  }
+  photoFlushing = true
+  const sid = activeSpaceId
+  try {
+    const entries = await db.photoOutbox.toArray()
+    for (const e of entries) {
+      try {
+        if (e.deleted) {
+          await supabase.storage
+            .from(PHOTO_BUCKET)
+            .remove([fullPath(sid, e.photoId), thumbPath(sid, e.photoId)])
+          await supabase
+            .from('photos')
+            .update({ deleted: true, updated_at: Date.now() })
+            .eq('id', e.photoId)
+            .eq('space_id', sid)
+        } else {
+          const row = await db.photos.get(e.photoId)
+          if (!row) {
+            await db.photoOutbox.delete(e.photoId) // arada silinmiş
+            continue
+          }
+          const up1 = await supabase.storage
+            .from(PHOTO_BUCKET)
+            .upload(fullPath(sid, e.photoId), row.blob, {
+              upsert: true,
+              contentType: row.blob.type || 'image/jpeg',
+            })
+          if (up1.error) throw up1.error
+          const up2 = await supabase.storage
+            .from(PHOTO_BUCKET)
+            .upload(thumbPath(sid, e.photoId), row.thumbBlob, {
+              upsert: true,
+              contentType: row.thumbBlob.type || 'image/jpeg',
+            })
+          if (up2.error) throw up2.error
+          const meta: PhotoMetaInsert = {
+            id: e.photoId,
+            space_id: sid,
+            storage_path: fullPath(sid, e.photoId),
+            thumb_path: thumbPath(sid, e.photoId),
+            deleted: false,
+            created_at: Date.now(),
+            updated_at: Date.now(),
+          }
+          const { error } = await supabase.from('photos').upsert(meta)
+          if (error) throw error
+        }
+        await db.photoOutbox.delete(e.photoId)
+      } catch (err) {
+        console.warn('[sync] foto flush hatası, sonra denenecek:', (err as Error).message)
+        schedulePhotoFlush(8000)
+        break // kalanları sonraki denemeye bırak
+      }
+    }
+  } finally {
+    photoFlushing = false
+    if (photoFlushQueued) {
+      photoFlushQueued = false
+      schedulePhotoFlush(0)
+    }
+  }
+}
+
+/** Tüm yerel fotoğrafları yükleme kuyruğuna alıp gönderir (space oluşturma/katılmada). */
+export async function pushAllLocalPhotos(): Promise<void> {
+  if (!supabase || !activeSpaceId) return
+  const ids = await db.photos.toCollection().primaryKeys()
+  if (ids.length) {
+    await db.photoOutbox.bulkPut(ids.map((photoId) => ({ photoId: photoId as string, deleted: false })))
+  }
+  await flushPhotoOutbox()
+}
+
+function photoPulledKey(sid: string) {
+  return `witb.photoPulledAt.${sid}`
+}
+function getPhotoPulledAt(sid: string): number {
+  const v = Number(localStorage.getItem(photoPulledKey(sid)))
+  return Number.isFinite(v) ? v : 0
+}
+function setPhotoPulledAt(sid: string, v: number) {
+  try {
+    localStorage.setItem(photoPulledKey(sid), String(v))
+  } catch {
+    /* yoksay */
+  }
+}
+
+export async function pullPhotos(): Promise<void> {
+  if (!supabase || !activeSpaceId) return
+  const sid = activeSpaceId
+  const since = getPhotoPulledAt(sid)
+  const { data, error } = await supabase
+    .from('photos')
+    .select('*')
+    .eq('space_id', sid)
+    .gt('updated_at', since)
+    .order('updated_at', { ascending: true })
+  if (error) {
+    console.warn('[sync] foto pull hatası:', error.message)
+    return
+  }
+  if (!data || !data.length) return
+  let lastOk = since
+  for (const meta of data) {
+    const ok = await applyRemotePhoto(meta)
+    if (!ok) break // indirme başarısız: imleci ilerletme, sonra tekrar dene
+    lastOk = Math.max(lastOk, meta.updated_at)
+  }
+  if (lastOk > since) setPhotoPulledAt(sid, lastOk)
+}
+
+/** Tek foto metadata satırını uygular: yoksa indir, silindiyse yerelden kaldır. */
+async function applyRemotePhoto(meta: PhotoMetaRow): Promise<boolean> {
+  if (!supabase) return false
+  try {
+    if (meta.deleted) {
+      const existing = await db.photos.get(meta.id)
+      if (existing) {
+        invalidateThumb(meta.id)
+        await db.photos.delete(meta.id)
+        bumpPhotoTick()
+      }
+      return true
+    }
+    if (await db.photos.get(meta.id)) return true // zaten yerelde
+    if (!meta.storage_path || !meta.thumb_path) return true
+    const full = await supabase.storage.from(PHOTO_BUCKET).download(meta.storage_path)
+    if (full.error || !full.data) throw full.error ?? new Error('indirme boş')
+    const thumb = await supabase.storage.from(PHOTO_BUCKET).download(meta.thumb_path)
+    if (thumb.error || !thumb.data) throw thumb.error ?? new Error('thumb indirme boş')
+    await db.photos.put({ id: meta.id, blob: full.data, thumbBlob: thumb.data })
+    bumpPhotoTick()
+    return true
+  } catch (err) {
+    console.warn('[sync] foto indirilemedi, sonra denenecek:', (err as Error).message)
+    return false
+  }
+}
+
+function bumpPhotoTick() {
+  useNodesStore.setState((s) => ({ photoTick: s.photoTick + 1 }))
+}
+
+function subscribePhotosRealtime(sid: string) {
+  if (!supabase) return
+  photoChannel = supabase
+    .channel(`photos:${sid}`)
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'photos', filter: `space_id=eq.${sid}` },
+      (payload) => {
+        const row = payload.new as PhotoMetaRow
+        if (row && row.id) void applyRemotePhoto(row)
+      },
+    )
+    .subscribe()
+}
+
 // ---- Realtime ----
 
 function subscribeRealtime(spaceId: string) {
@@ -252,14 +450,21 @@ let onlineHandler: (() => void) | null = null
 
 export async function startSync(): Promise<void> {
   if (!supabase || !activeSpaceId) return
-  await flushOutbox() // bekleyen yerel değişiklikleri gönder
-  await pullChanges() // uzaktakileri yakala
-  subscribeRealtime(activeSpaceId)
+  const sid = activeSpaceId
+  await flushOutbox() // bekleyen yerel düğüm değişikliklerini gönder
+  await pullChanges() // uzaktaki düğümleri yakala
+  subscribeRealtime(sid)
+  // Fotoğraflar (Storage)
+  await flushPhotoOutbox()
+  await pullPhotos()
+  subscribePhotosRealtime(sid)
 
   // Çevrimiçi olunca tekrar senkronla.
   onlineHandler = () => {
     void flushOutbox()
     void pullChanges()
+    void flushPhotoOutbox()
+    void pullPhotos()
   }
   window.addEventListener('online', onlineHandler)
 }
@@ -268,6 +473,10 @@ export function stopSync() {
   if (channel) {
     void supabase?.removeChannel(channel)
     channel = null
+  }
+  if (photoChannel) {
+    void supabase?.removeChannel(photoChannel)
+    photoChannel = null
   }
   if (onlineHandler) {
     window.removeEventListener('online', onlineHandler)

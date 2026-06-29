@@ -5,11 +5,13 @@ import * as nodesRepo from '../db/nodesRepo'
 import { deletePhotos } from '../db/photosRepo'
 import { invalidateThumb } from '../lib/photoUrl'
 import { normalizeText } from '../lib/text'
-import { markDirty, markDeleted } from '../lib/sync'
+import { markDirty, markDeleted, markPhotoDeleted } from '../lib/sync'
 
 interface NodesState {
   nodes: NodeRow[]
   loaded: boolean
+  /** Uzaktan fotoğraf indirilince artar; thumbnail/görsel hook'larını yeniler. */
+  photoTick: number
   init: () => Promise<void>
 
   createBox: (name: string) => Promise<NodeRow>
@@ -35,6 +37,7 @@ function topOrder(siblings: NodeRow[]): number {
 export const useNodesStore = create<NodesState>((set, get) => ({
   nodes: [],
   loaded: false,
+  photoTick: 0,
 
   async init() {
     const nodes = await nodesRepo.loadAllNodes()
@@ -115,6 +118,7 @@ export const useNodesStore = create<NodesState>((set, get) => ({
     void markDirty(id)
     invalidateThumb(photoId)
     await deletePhotos([photoId])
+    void markPhotoDeleted(photoId)
   },
 
   async setSkip(boxId, value) {
@@ -155,6 +159,7 @@ export const useNodesStore = create<NodesState>((set, get) => ({
     set((s) => ({ nodes: s.nodes.filter((n) => !removed.has(n.id)) }))
     removed.forEach((rid) => void markDeleted(rid))
     await deletePhotos(photoIds)
+    photoIds.forEach((pid) => void markPhotoDeleted(pid))
   },
 }))
 
